@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Заявка КЛТР</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#F2F2F7;--card:#fff;--sep:#C6C6C8;--tx:#000;--tx2:#6C6C70;--bl:#007AFF;--rd:#FF3B30;--gn:#34C759;--ph:#C7C7CC;--wn:#FF9500;
+  --c60:#FFCC00;--c90:#FF9500;--c120:#FF3B30;--c150:#AF52DE;--c180:#5856D6;--c240:#8E8E93}
+:root.gray{--bg:#303033;--card:#3F3F43;--sep:#56565B;--tx:#F4F4F5;--tx2:#A6A6AD;--bl:#4DA3FF;--rd:#FF6259;--gn:#4CD964;--ph:#7C7C83;--wn:#FFA630;
+  --c60:#FFD93D;--c90:#FFA630;--c120:#FF6259;--c150:#C77DEB;--c180:#7D7AFF;--c240:#A6A6AD}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:16px}
+#app{max-width:520px;margin:0 auto;padding:0 0 calc(24px + env(safe-area-inset-bottom))}
+button,input{font-family:inherit;font-size:16px}
+.nav{display:grid;grid-template-columns:90px 1fr 90px;align-items:center;height:48px;padding:0 12px}
+.nav .t{text-align:center;font-weight:600;font-size:17px}
+.nav button{background:none;border:none;color:var(--bl);padding:0;cursor:pointer;text-align:left}
+.nav button.r{text-align:right}
+.lt{font-size:30px;font-weight:700;padding:2px 20px 8px;letter-spacing:-.3px}
+.sh{font-size:13px;color:var(--tx2);text-transform:uppercase;padding:14px 20px 6px;letter-spacing:.2px;display:flex;justify-content:space-between}
+.sf{font-size:13px;color:var(--tx2);padding:6px 20px 0}
+.sf.err{color:var(--rd)}.sf.wn{color:var(--wn)}
+.g{background:var(--card);border-radius:12px;margin:0 16px;overflow:hidden}
+.r{display:flex;align-items:center;min-height:44px;padding:0 16px;position:relative}
+.r+.r::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.r .l{flex:1}
+.r input{border:none;background:transparent;color:var(--tx);padding:0;height:44px;min-width:0;text-align:right;flex:1}
+.r input:focus{outline:none;color:var(--bl)}
+.r input::placeholder{color:var(--ph)}
+.r input.bad{color:var(--rd)}
+.pos{display:grid;grid-template-columns:1fr 96px 74px;align-items:center;width:100%}
+.pos input{text-align:left}
+.pos input.q{text-align:right}
+.ei{border:none;background:none;color:var(--bl);cursor:pointer;height:44px;padding:0;display:flex;align-items:center;justify-content:center;gap:6px}
+.ei.none{color:var(--rd)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.pk{padding:0 16px 0 28px}.pk .r{padding:0;cursor:pointer}
+.ck{color:var(--bl);font-weight:700}
+.del{width:22px;height:22px;border-radius:50%;background:var(--rd);color:#fff;border:none;padding:0;margin-right:10px;font-size:16px;line-height:20px;cursor:pointer;flex:none}
+.add{color:var(--bl);cursor:pointer;background:none;border:none;width:100%;text-align:left;height:44px;padding:0}
+.btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;height:50px;border-radius:14px;border:none;background:var(--bl);color:#fff;font-size:17px;font-weight:600;cursor:pointer}
+.val{color:var(--tx2);text-align:right}
+.pr{font-variant-numeric:tabular-nums;white-space:nowrap}
+.sp{display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;padding:7px 0}
+.sp small{color:var(--tx2);font-size:13px}
+.big{font-weight:600}
+.done{text-align:center;padding:60px 24px;color:var(--tx2)}
+.done b{display:block;font-size:20px;color:var(--tx);margin-bottom:8px}
+pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--card);border-radius:12px;margin:12px 16px;padding:12px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+var FIRE = [60, 90, 120, 150, 180, 240];
+/* Расценка приходит от бота вместе с заявкой (K = {r: расценка, m: {предел: множитель}, v: НДС %}):
+   страница лежит на публичном хостинге и не должна содержать прайс. DEMO — условные цифры для проверки вёрстки без бота. */
+var K = { r: 1000, m: { "240": 1.2 }, v: 22 };
+var tg = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+var inTelegram = !!(tg && tg.initData);
+
+/* ---------- деньги: целые копейки, как Decimal в calc.py ---------- */
+function unitCents(w, h, fire) {
+  var rate = K.r * (K.m[String(fire)] || 1);
+  var rate1000 = Math.round(rate * 1000) / 1000;
+  var thousandths = Math.round(rate1000 * 2 * (w + h));   // рубли * 1000
+  return Math.floor((thousandths + 5) / 10);              // копейки, округление half-up
+}
+function pctTenths(v) {                                    // '5' / '7,5' -> 50 / 75, иначе 0 (допустимо 0,1–90 %)
+  var n = parseFloat(String(v == null ? "" : v).replace("%", "").replace(",", ".").trim());
+  if (!isFinite(n) || n < 0.1 || n > 90) return 0;
+  return Math.round(n * 10);
+}
+function money(c) {
+  var s = String(Math.floor(c / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return s + "," + String(c % 100).padStart(2, "0");
+}
+function calc(rows, disc) {
+  var total = 0;
+  rows.forEach(function (r) { r.unit = unitCents(r.w, r.h, r.f); r.sum = r.unit * r.q; total += r.sum; });
+  var p = pctTenths(disc);
+  var after = p ? Math.floor((total * (1000 - p) * 2 + 1000) / 2000) : total;
+  var VAT = K.v;
+  var vat = Math.floor((total * VAT * 2 + (100 + VAT)) / (2 * (100 + VAT)));
+  return { total: total, after: after, vat: vat, pct: p, off: total - after };
+}
+
+/* ---------- состояние ---------- */
+var S = { t: "", rows: [], co: "", dr: "", days: "10", disc: "", step: 1, open: -1, edit: false, errs: [], badIdx: {}, sent: false };
+var app = document.getElementById("app");
+
+function b64json(s) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
+}
+function loadData() {
+  var raw = new URLSearchParams(location.hash.replace(/^#/, "")).get("d") || new URLSearchParams(location.search).get("d");
+  var d = null;
+  if (raw) { try { d = b64json(raw); } catch (e) { d = null; } }
+  if (!d) {
+    if (inTelegram) return false;
+    d = { t: "demo", p: [[800, 600, 60, 5], [1000, 500, 90, 12], [400, 300, 0, 8], [1250, 800, 120, 30]], c: "", dr: "ген. директор Иванов С. С.", n: 10, s: "" };
+  }
+  if (d.k && d.k.r > 0) K = { r: d.k.r, m: d.k.m || {}, v: d.k.v || 0 };
+  else if (d.t !== "demo") return false;                 // без расценки считать нечего — просим открыть форму из бота
+  S.t = d.t || "";
+  S.rows = (d.p || []).map(function (a) { return { w: a[0], h: a[1], f: a[2] || 0, q: a[3] || 1 }; });
+  S.co = d.c || ""; S.dr = d.dr || ""; S.days = String(d.n || 10); S.disc = d.s ? String(d.s) : "";
+  return true;
+}
+
+/* ---------- вспомогательное ---------- */
+function esc(x) { return String(x).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function dot(f) { return f ? '<span class="dot" style="background:var(--c' + f + ')"></span>' : ""; }
+function qtyTotal() { return S.rows.reduce(function (a, r) { return a + r.q; }, 0); }
+function sizeText(r) { return r.w + "×" + r.h; }
+function parseSize(v) {
+  var m = String(v).match(/^\s*(\d{2,5})\s*[xXхХ×*]\s*(\d{2,5})\s*$/);
+  return m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : null;
+}
+
+/* ---------- экраны ---------- */
+function viewForm() {
+  var h = '<div class="nav"><span></span><span class="t">Новая заявка</span><button class="r" data-edit="1">' + (S.edit ? "Готово" : "Изменить") + '</button></div>';
+  h += '<div class="lt">Заявка</div><div class="sh"><span>Позиции</span><span>' + S.rows.length + " · " + qtyTotal() + ' шт</span></div>';
+  h += '<div class="sf" style="padding:0 20px 6px;display:grid;grid-template-columns:1fr 96px 74px;margin-top:-2px"><span>Размер, мм</span><span style="text-align:center">Огнестойк.</span><span style="text-align:right">Кол-во</span></div><div class="g">';
+  S.rows.forEach(function (r, i) {
+    var bad = S.badIdx[i] || {};
+    h += '<div class="r">' + (S.edit ? '<button class="del" data-del="' + i + '" aria-label="Удалить">−</button>' : "") +
+      '<div class="pos"><input class="' + (bad.s ? "bad" : "") + '" value="' + esc(sizeText(r)) + '" data-s="' + i + '" inputmode="text" aria-label="Размер">' +
+      '<button class="ei' + (r.f ? "" : " none") + '" data-o="' + i + '">' + (r.f ? dot(r.f) + "EI " + r.f : "Выбрать") + '</button>' +
+      '<input class="q ' + (bad.q ? "bad" : "") + '" value="' + r.q + ' шт" data-q="' + i + '" inputmode="numeric" aria-label="Количество"></div></div>';
+    if (S.open === i) {
+      h += '<div class="pk">';
+      FIRE.forEach(function (e) { h += '<div class="r" data-e="' + e + '" data-i="' + i + '">' + dot(e) + '<span class="l" style="margin-left:10px">EI ' + e + '</span>' + (r.f === e ? '<span class="ck">✓</span>' : "") + "</div>"; });
+      h += "</div>";
+    }
+  });
+  h += '<div class="r"><button class="add" data-add="1">⊕&nbsp; Добавить позицию</button></div></div>';
+  var big = S.rows.filter(function (r) { return r.q >= 200; }).length;
+  if (big) h += '<div class="sf wn">Количество от 200 шт — проверьте, не ошибка ли.</div>';
+  h += '<div class="sh"><span>Заказчик</span></div><div class="g">' +
+    '<div class="r"><span class="l" style="' + (S.errs.indexOf("co") >= 0 ? "color:var(--rd)" : "") + '">Компания</span><input data-v="co" placeholder="ООО «Ромашка»" value="' + esc(S.co) + '" style="flex:2"></div>' +
+    '<div class="r"><span class="l">Руководитель</span><input data-v="dr" placeholder="должность и ФИО" value="' + esc(S.dr) + '" style="flex:2"></div></div>';
+  h += '<div class="sh"><span>Условия</span></div><div class="g">' +
+    '<div class="r"><span class="l">Срок изготовления</span><input data-v="days" inputmode="numeric" value="' + esc(S.days) + '" style="max-width:48px"><span class="val" style="margin-left:6px">раб. дней</span></div>' +
+    '<div class="r"><span class="l">Скидка</span><input data-v="disc" inputmode="decimal" placeholder="нет" value="' + esc(S.disc) + '" style="max-width:48px"><span class="val" style="margin-left:6px">%</span></div></div>';
+  if (S.errs.length) h += '<div class="sf err">' + S.errs.filter(function (e) { return e.length > 3; }).map(esc).join("<br>") + "</div>";
+  h += '<button class="btn" data-go="1">Подтвердить</button>';
+  return h;
+}
+function viewReview() {
+  var c = calc(S.rows, S.disc);
+  var h = '<div class="nav"><button data-back="1">‹ Назад</button><span class="t">Проверка</span><span></span></div><div class="lt">Расчёт</div>';
+  h += '<div class="sh"><span>Позиции</span><span>' + S.rows.length + " · " + qtyTotal() + ' шт</span></div><div class="g">';
+  S.rows.forEach(function (r) {
+    h += '<div class="r"><div class="sp"><span>' + r.w + "×" + r.h + '</span><span class="pr">' + money(r.sum) + ' ₽</span><small>' + dot(r.f) + " EI " + r.f + " · " + r.q + " шт · " + money(r.unit) + ' ₽/компл.</small><span></span></div></div>';
+  });
+  h += '</div><div class="sh"><span>Итог</span></div><div class="g"><div class="r"><span class="l">Сумма</span><span class="pr">' + money(c.total) + " ₽</span></div>";
+  if (c.pct) h += '<div class="r"><span class="l">Скидка ' + (c.pct / 10).toString().replace(".", ",") + ' %</span><span class="pr" style="color:var(--rd)">−' + money(c.off) + " ₽</span></div>";
+  h += '<div class="r"><span class="l big">К оплате</span><span class="pr big">' + money(c.after) + " ₽</span></div>" +
+    '<div class="r"><span class="l" style="color:var(--tx2)">в т. ч. НДС ' + K.v + ' %</span><span class="pr val">' + money(c.vat) + " ₽</span></div></div>";
+  h += '<div class="sh"><span>Заказчик и сроки</span></div><div class="g">' +
+    '<div class="r"><span class="l">Компания</span><span class="val">' + esc(S.co) + "</span></div>" +
+    (S.dr ? '<div class="r"><span class="l">Руководитель</span><span class="val">' + esc(S.dr) + "</span></div>" : "") +
+    '<div class="r"><span class="l">Срок</span><span class="val">' + esc(S.days) + " раб. дней</span></div></div>";
+  h += '<button class="btn" data-next="1">Далее</button>';
+  return h;
+}
+function viewDone(payload) {
+  var h = '<div class="done"><b>Отправлено боту</b>Окно закроется само. КП придёт в чат.</div>';
+  if (!inTelegram) h += "<pre>" + esc(JSON.stringify(payload)) + "</pre>";
+  return h;
+}
+function view() {
+  app.innerHTML = S.sent ? viewDone(S.sent) : S.step === 1 ? viewForm() : viewReview();
+}
+
+/* ---------- проверка и отправка ---------- */
+function validate() {
+  var errs = [], bad = {};
+  S.rows.forEach(function (r, i) {
+    var b = {};
+    if (!(r.w >= 10 && r.h >= 10)) { b.s = 1; errs.push("Позиция " + (i + 1) + ": проверьте размер, например 800×600."); }
+    if (!r.f) errs.push("Позиция " + (i + 1) + ": выберите предел огнестойкости.");
+    if (!(r.q >= 1 && r.q <= 99999)) { b.q = 1; errs.push("Позиция " + (i + 1) + ": проверьте количество."); }
+    if (b.s || b.q) bad[i] = b;
+  });
+  if (!S.rows.length) errs.push("Добавьте хотя бы одну позицию.");
+  if (!S.co.trim()) { errs.push("Укажите название компании."); errs.push("co"); }
+  var d = parseInt(S.days, 10);
+  if (!(d >= 1 && d <= 365)) errs.push("Срок изготовления: число рабочих дней от 1 до 365.");
+  if (S.disc.trim() && !pctTenths(S.disc)) errs.push("Скидка: число от 0,1 до 90 или пусто.");
+  S.errs = errs; S.badIdx = bad;
+  return !errs.length;
+}
+function payload() {
+  return { t: S.t, p: S.rows.map(function (r) { return [r.w, r.h, r.f, r.q]; }), c: S.co.trim(), d: S.dr.trim(),
+           n: parseInt(S.days, 10), s: S.disc.trim() ? String(pctTenths(S.disc) / 10) : "" };
+}
+
+/* ---------- события ---------- */
+app.addEventListener("click", function (e) {
+  var row = e.target.closest("[data-e]");
+  if (row) { S.rows[+row.dataset.i].f = +row.dataset.e; S.open = -1; view(); return; }
+  var b = e.target.closest("button"); if (!b) return;
+  var d = b.dataset;
+  if (d.o !== undefined) { S.open = S.open === +d.o ? -1 : +d.o; view(); }
+  else if (d.add) { S.rows.push({ w: 800, h: 600, f: 0, q: 1 }); S.open = S.rows.length - 1; view(); }
+  else if (d.edit) { S.edit = !S.edit; view(); }
+  else if (d.del !== undefined) { if (S.rows.length > 1) { S.rows.splice(+d.del, 1); S.open = -1; S.badIdx = {}; view(); } }
+  else if (d.go) { if (validate()) { S.step = 2; window.scrollTo(0, 0); } view(); }
+  else if (d.back) { S.step = 1; view(); }
+  else if (d.next) {
+    var p = payload();
+    if (tg) { try { tg.sendData(JSON.stringify(p)); } catch (err) { S.errs = ["Не удалось отправить: " + err.message]; S.step = 1; view(); return; } }
+    S.sent = p; view();
+  }
+});
+app.addEventListener("change", function (e) {
+  var t = e.target, d = t.dataset;
+  if (d.s !== undefined) { var sz = parseSize(t.value); if (sz) { S.rows[+d.s].w = sz[0]; S.rows[+d.s].h = sz[1]; delete S.badIdx[+d.s]; } else { S.badIdx[+d.s] = { s: 1 }; } view(); }
+  else if (d.q !== undefined) { var n = parseInt(String(t.value).replace(/\D/g, ""), 10); S.rows[+d.q].q = n > 0 ? n : 0; view(); }
+});
+app.addEventListener("input", function (e) { var d = e.target.dataset; if (d.v) S[d.v] = e.target.value; });
+
+/* ---------- запуск ---------- */
+(function init() {
+  var q = new URLSearchParams(location.search).get("theme");
+  var dark = q ? q === "gray" : (tg ? tg.colorScheme === "dark" : window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.className = dark ? "gray" : "";
+  if (tg) { try { tg.ready(); tg.expand(); var bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(); tg.setBackgroundColor(bg); tg.setHeaderColor(bg); } catch (e) {} }
+  if (!loadData()) { app.innerHTML = '<div class="done"><b>Нет данных заявки</b>Откройте форму кнопкой из чата с ботом.</div>'; return; }
+  view();
+})();
+</script>
+</body>
+</html>
