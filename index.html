@@ -182,6 +182,10 @@ function view() {
 }
 
 /* ---------- проверка и отправка ---------- */
+function quotesOk(s) {   // парные кавычки: «…» поровну, "…" и “…” чётное число
+  var n = function (re) { return (s.match(re) || []).length; };
+  return n(/«/g) === n(/»/g) && n(/"/g) % 2 === 0 && n(/“/g) === n(/”/g);
+}
 function validate() {
   var errs = [], bad = {};
   S.rows.forEach(function (r, i) {
@@ -193,6 +197,7 @@ function validate() {
   });
   if (!S.rows.length) errs.push("Добавьте хотя бы одну позицию.");
   if (!S.co.trim()) { errs.push("Укажите название компании."); errs.push("co"); }
+  else if (!quotesOk(S.co)) { errs.push("Название компании: проверьте кавычки — каждая « должна закрываться »."); errs.push("co"); }
   var d = parseInt(S.days, 10);
   if (!(d >= 1 && d <= 365)) errs.push("Срок изготовления: число рабочих дней от 1 до 365.");
   if (S.disc.trim() && !pctTenths(S.disc)) errs.push("Скидка: число от 0,1 до 90 или пусто.");
